@@ -9,8 +9,10 @@ typedef struct tide_decoder_impl {
   void *user;
   tide_buffer buffer;
   uint64_t valid_prefix;
+  size_t parse_offset;
   int cancelled;
   int terminal;
+  int header_validated;
   tide_error error;
   tide_track_snapshot *tracks;
   size_t track_count;
@@ -804,16 +806,65 @@ tide_status tide_decoder_feed(tide_decoder *decoder,
     *consumed = size;
   }
   if (!end) {
+    if (!impl->header_validated) {
+      if (impl->buffer.size < TIDE_HEADER_SIZE) {
+        return TIDE_STATUS_OK;
+      }
+      status = tide_validate_header(impl->buffer.data, impl->buffer.size, &impl->limits, &impl->error);
+      if (status != TIDE_STATUS_OK) {
+        if (impl->callbacks.on_error != NULL) {
+          impl->callbacks.on_error(impl->user, &impl->error);
+        }
+        impl->terminal = 1;
+        return status;
+      }
+      impl->header_validated = 1;
+      impl->parse_offset = TIDE_HEADER_SIZE;
+      impl->valid_prefix = TIDE_HEADER_SIZE;
+    }
+    status = tide_parse_records(impl,
+                                impl->buffer.data,
+                                impl->parse_offset,
+                                impl->buffer.size,
+                                0u,
+                                &impl->error,
+                                &impl->valid_prefix);
+    if (status == TIDE_STATUS_TRUNCATED) {
+      impl->parse_offset = (size_t)impl->valid_prefix;
+      return TIDE_STATUS_OK;
+    }
+    if (status != TIDE_STATUS_OK) {
+      if (impl->callbacks.on_error != NULL) {
+        impl->callbacks.on_error(impl->user, &impl->error);
+      }
+      impl->terminal = 1;
+      return status;
+    }
+    impl->parse_offset = impl->buffer.size;
     return TIDE_STATUS_OK;
   }
-  status = tide_parse_tide_bytes(impl->buffer.data,
-                                 impl->buffer.size,
-                                 1,
-                                 &impl->limits,
-                                 &impl->callbacks,
-                                 impl->user,
-                                 &impl->error,
-                                 &impl->valid_prefix);
+  if (!impl->header_validated) {
+    status = tide_validate_header(impl->buffer.data, impl->buffer.size, &impl->limits, &impl->error);
+    if (status != TIDE_STATUS_OK) {
+      impl->terminal = 1;
+      return status == TIDE_STATUS_TRUNCATED ? TIDE_STATUS_PARTIAL : status;
+    }
+    impl->header_validated = 1;
+    impl->parse_offset = TIDE_HEADER_SIZE;
+    impl->valid_prefix = TIDE_HEADER_SIZE;
+  }
+  status = tide_parse_records(impl,
+                              impl->buffer.data,
+                              impl->parse_offset,
+                              impl->buffer.size,
+                              0u,
+                              &impl->error,
+                              &impl->valid_prefix);
+  if (status == TIDE_STATUS_TRUNCATED) {
+    status = TIDE_STATUS_PARTIAL;
+  } else if (status == TIDE_STATUS_OK) {
+    impl->parse_offset = impl->buffer.size;
+  }
   if (status != TIDE_STATUS_OK && status != TIDE_STATUS_PARTIAL &&
       impl->callbacks.on_error != NULL) {
     impl->callbacks.on_error(impl->user, &impl->error);

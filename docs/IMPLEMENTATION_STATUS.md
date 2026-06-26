@@ -6,7 +6,7 @@ Phase 3: first useful path, with local Windows verification active.
 
 ## Last Completed Ticket
 
-TIDE-013 partial and TIDE-019 partial: rich record validation for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length was added, along with the earlier sequential demux/remux CLI path. Debug, Release, tests, ASan/UBSan executable test run, fuzz smoke, and CLI smoke now pass on the local Windows Clang/Ninja toolchain.
+TIDE-010/TIDE-013 partial and TIDE-019 partial: the decoder now emits complete top-level records before final EOF, rich record validation was added for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length, and the sequential demux/remux CLI path is verified. Debug, Release, tests, ASan/UBSan executable test run, fuzz smoke, and CLI smoke pass on the local Windows Clang/Ninja toolchain.
 
 ## Next Actionable Ticket
 
@@ -22,6 +22,7 @@ Continue TIDE-014 through TIDE-030: canonical writer vectors, richer demux/mux/i
 - Status/error/limits/checked arithmetic.
 - TIDE header/record reader and writer.
 - CRC32C integrity checks.
+- Progressive decoder feed for complete top-level records before final EOF.
 - Descriptor and packet decoder callbacks.
 - Rich record validators for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length.
 - Memory/file source adapters.
@@ -70,7 +71,7 @@ No benchmarks run. Numeric budgets are unverified; `scripts/benchmark.sh` is sti
 ## Deviations
 
 - The digest adapter is implemented as CRC32C for records only; checkpoint/footer BLAKE3-like digest semantics are not complete. Tracked as unverified full-version work, not a spec-compatible final state.
-- Decoder currently emits callbacks after final feed from an accumulated bounded buffer. Arbitrary split determinism is represented in tests/fuzz sources but true progressive callback emission before final EOF remains unverified future work.
+- Progressive callback emission is implemented for complete top-level records. Deep payload streaming and pre-complete GROUP child emission remain future work.
 
 ## Last Verified Commit
 

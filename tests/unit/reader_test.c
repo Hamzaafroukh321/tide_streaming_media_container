@@ -90,8 +90,42 @@ static int header_canonical_round_trip(void) {
   return 0;
 }
 
+static int decoder_emits_complete_record_before_final_eof(void) {
+  tide_source *source = NULL;
+  tide_decoder decoder;
+  tide_callbacks callbacks;
+  size_t consumed = 0;
+  size_t first_record_end = TIDE_HEADER_SIZE + 44u;
+  count_ctx ctx = {0, 0, 0};
+  TIDE_EXPECT(write_sample("reader_split_sample.tide") == 0);
+  TIDE_EXPECT_STATUS(tide_source_from_file(&source, "reader_split_sample.tide"), TIDE_STATUS_OK);
+  TIDE_EXPECT(tide_source_size(source) > first_record_end);
+  memset(&callbacks, 0, sizeof(callbacks));
+  callbacks.size = sizeof(callbacks);
+  callbacks.on_record = on_record;
+  callbacks.on_stream = on_stream;
+  callbacks.on_packet = on_packet;
+  TIDE_EXPECT_STATUS(tide_decoder_init(&decoder, NULL, &callbacks, &ctx), TIDE_STATUS_OK);
+  TIDE_EXPECT_STATUS(tide_decoder_feed(&decoder, tide_source_data(source), first_record_end, 0, &consumed), TIDE_STATUS_OK);
+  TIDE_EXPECT(consumed == first_record_end);
+  TIDE_EXPECT(ctx.streams == 1);
+  TIDE_EXPECT(ctx.packets == 0);
+  TIDE_EXPECT_STATUS(tide_decoder_feed(&decoder,
+                                       tide_source_data(source) + first_record_end,
+                                       tide_source_size(source) - first_record_end,
+                                       1,
+                                       &consumed), TIDE_STATUS_OK);
+  TIDE_EXPECT(consumed == tide_source_size(source) - first_record_end);
+  TIDE_EXPECT(ctx.packets == 1);
+  tide_decoder_destroy(&decoder);
+  tide_source_destroy(source);
+  remove("reader_split_sample.tide");
+  return 0;
+}
+
 int tide_reader_tests(tide_test_case *out, int max) {
   int n = 0;
   if (max > n) out[n++] = (tide_test_case){"HeaderCanonicalRoundTrip", header_canonical_round_trip};
+  if (max > n) out[n++] = (tide_test_case){"DecoderEmitsCompleteRecordBeforeFinalEof", decoder_emits_complete_record_before_final_eof};
   return n;
 }
