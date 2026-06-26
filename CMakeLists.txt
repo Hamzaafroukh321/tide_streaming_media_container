@@ -50,6 +50,17 @@ target_include_directories(tide_core PUBLIC include PRIVATE src)
 tide_apply_warnings(tide_core)
 tide_append_sanitizers(tide_core)
 
+if(WIN32 AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+  get_filename_component(TIDE_CLANG_BIN_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
+  file(GLOB_RECURSE TIDE_CLANG_BUILTINS_CANDIDATES
+    "${TIDE_CLANG_BIN_DIR}/../lib/clang/*/lib/windows/clang_rt.builtins-x86_64.lib")
+  list(LENGTH TIDE_CLANG_BUILTINS_CANDIDATES TIDE_CLANG_BUILTINS_COUNT)
+  if(TIDE_CLANG_BUILTINS_COUNT GREATER 0)
+    list(GET TIDE_CLANG_BUILTINS_CANDIDATES 0 TIDE_CLANG_BUILTINS)
+    target_link_libraries(tide_core PUBLIC "${TIDE_CLANG_BUILTINS}")
+  endif()
+endif()
+
 add_executable(tide src/cli/main.c)
 target_link_libraries(tide PRIVATE tide_core)
 tide_apply_warnings(tide)
@@ -78,6 +89,7 @@ tide_append_sanitizers(example_stream_demux)
 if(BUILD_TESTING)
   add_executable(tide_tests
     tests/unit/reader_test.c
+    tests/unit/record_semantics_test.c
     tests/unit/time_test.c
     tests/unit/edit_test.c
     tests/unit/reorder_test.c

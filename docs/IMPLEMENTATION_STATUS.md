@@ -2,15 +2,15 @@
 
 ## Current Phase
 
-Phase 3: first useful path, with local verification blocked.
+Phase 3: first useful path, with local Windows verification active.
 
 ## Last Completed Ticket
 
-TIDE-019 partial: build files, core TIDE-1 subset, sequential demux/remux CLI path, repair-prefix path, tests, fuzz harnesses, and docs were added. Native build verification is still blocked locally.
+TIDE-013 partial and TIDE-019 partial: rich record validation for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length was added, along with the earlier sequential demux/remux CLI path. Debug, Release, tests, ASan/UBSan executable test run, fuzz smoke, and CLI smoke now pass on the local Windows Clang/Ninja toolchain.
 
 ## Next Actionable Ticket
 
-Run the clean debug build and CTest suite on a machine with CMake and a C17 compiler, fix any compiler findings, then continue TIDE-013 through TIDE-030 hardening gaps.
+Continue TIDE-014 through TIDE-030: canonical writer vectors, richer demux/mux/index/repair integration, progressive streaming callbacks, fault injection, cancellation, worker handoff, and performance work.
 
 ## Selected Specification
 
@@ -23,6 +23,7 @@ Run the clean debug build and CTest suite on a machine with CMake and a C17 comp
 - TIDE header/record reader and writer.
 - CRC32C integrity checks.
 - Descriptor and packet decoder callbacks.
+- Rich record validators for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length.
 - Memory/file source adapters.
 - Payload lease and packet move ownership.
 - Rational timestamp conversion and edit clipping.
@@ -35,28 +36,28 @@ Run the clean debug build and CTest suite on a machine with CMake and a C17 comp
 
 ## In-Progress Modules
 
-- Rich record semantics for packet tables, seek indexes, checkpoints, index directories, discontinuities, and footer digest validation.
+- Footer/checkpoint digest validation beyond bounded adapter fields.
 - Full checkpoint-led repair and fresh index/footer reconstruction.
 - Worker handoff, cancellation stress, and TSan verification.
 - Performance benchmark corpus and numeric budget validation.
 
 ## Known Blockers
 
-- Local verification blocker: `cmake`, `cc`, `gcc`, `clang`, `cl`, and `ninja` are not available on `PATH` in this Windows environment. Linux C17 verification commands are documented and must be run when a toolchain is available.
+- ThreadSanitizer instrumentation is not supported by the installed Windows Clang target (`-fsanitize=thread` is unsupported for `x86_64-pc-windows-msvc`). The TSan CMake profile builds as a non-instrumented compatibility profile and emits a warning.
 
 ## Build And Test Status
 
-- Debug build: blocked locally by missing CMake/compiler.
-- Release build: blocked locally by missing CMake/compiler.
-- Test suite: source added; execution blocked locally by missing CMake/compiler.
+- Debug build: passed with CMake 4.3.3, Ninja 1.13.2, Clang 22.1.8.
+- Release build: passed with CMake 4.3.3, Ninja 1.13.2, Clang 22.1.8.
+- Test suite: passed in Debug, Release, ASan/UBSan executable run, and TSan-profile compatibility build.
 
 ## Sanitizer Status
 
-Blocked locally by missing compiler/CMake. ASan/UBSan/TSan presets will be provided.
+ASan/UBSan build passed and `tide_tests.exe` passed when the LLVM sanitizer runtime directory was placed on `PATH`. TSan instrumentation is unsupported on this Windows target.
 
 ## Fuzz Status
 
-Harness source added for decoder, chunk-boundary, and demux-remux. Build and smoke execution are blocked locally by missing CMake/compiler.
+Harness source added for decoder, chunk-boundary, and demux-remux. Standalone smoke execution passed for all three harness executables.
 
 ## Documentation Status
 
@@ -64,7 +65,7 @@ README, architecture, format, testing, fuzzing, security, contributing, recovery
 
 ## Performance Status
 
-No benchmarks run. Numeric budgets are unverified until a supported toolchain and benchmark host are available. `scripts/benchmark.sh` is a stub that documents the missing corpus.
+No benchmarks run. Numeric budgets are unverified; `scripts/benchmark.sh` is still a stub that documents the missing corpus.
 
 ## Deviations
 
@@ -73,7 +74,7 @@ No benchmarks run. Numeric budgets are unverified until a supported toolchain an
 
 ## Last Verified Commit
 
-044cfc6
+659256b
 
 ## Last Updated
 

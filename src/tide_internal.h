@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "tide/demux.h"
+#include "tide/decoder.h"
 #include "tide/mux.h"
 #include "tide/repair.h"
 

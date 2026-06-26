@@ -45,8 +45,8 @@ tide_status tide_write_record(tide_buffer *out,
   size_t payload_var_size;
   size_t seq_var_size;
   size_t header_size;
-  uint64_t unpadded_end;
-  uint64_t padded_end;
+  uint64_t unpadded_size;
+  uint64_t padded_size;
   size_t padding_size;
   uint32_t crc;
   size_t crc_start;
@@ -70,12 +70,11 @@ tide_status tide_write_record(tide_buffer *out,
   (void)tide_write_uleb128(prefix + 8, (uint64_t)payload_size);
   (void)tide_write_uleb128(prefix + 8u + payload_var_size, sequence);
 
-  if (!tide_checked_add_u64((uint64_t)out->size, (uint64_t)header_size, &unpadded_end) ||
-      !tide_checked_add_u64(unpadded_end, (uint64_t)payload_size, &unpadded_end) ||
-      !tide_align_u64(unpadded_end, 1ull << alignment_log2, &padded_end)) {
+  if (!tide_checked_add_u64((uint64_t)header_size, (uint64_t)payload_size, &unpadded_size) ||
+      !tide_align_u64(unpadded_size, 1ull << alignment_log2, &padded_size)) {
     return TIDE_STATUS_RESOURCE;
   }
-  padding_size = (size_t)(padded_end - unpadded_end);
+  padding_size = (size_t)(padded_size - unpadded_size);
 
   crc_start = out->size;
   status = tide_buffer_append(out, prefix, header_size);

@@ -14,6 +14,14 @@ cmake --build --preset debug
 ctest --preset debug --output-on-failure
 ```
 
+On Windows, this repository has also been verified with explicit Clang/Ninja paths:
+
+```powershell
+& 'C:\Program Files\CMake\bin\cmake.exe' -S . -B build\debug-ninja -G Ninja -DCMAKE_MAKE_PROGRAM='C:/Users/Hamz/AppData/Local/Microsoft/WinGet/Packages/Ninja-build.Ninja_Microsoft.Winget.Source_8wekyb3d8bbwe/ninja.exe' -DCMAKE_C_COMPILER='C:/Program Files/LLVM/bin/clang.exe' -DCMAKE_RC_COMPILER='C:/Program Files/LLVM/bin/llvm-rc.exe' -DCMAKE_BUILD_TYPE=Debug
+& 'C:\Program Files\CMake\bin\cmake.exe' --build build\debug-ninja
+& 'C:\Program Files\CMake\bin\ctest.exe' --test-dir build\debug-ninja --output-on-failure
+```
+
 Sanitizer profiles:
 
 ```sh
@@ -46,8 +54,11 @@ Implemented:
 - Sequential demux/remux and prefix repair.
 - Unit/integration tests and three fuzz harness entry points.
 
-Blocked locally:
+Current verification:
 
-- Native build, CTest, sanitizer, and fuzz smoke verification because this environment has no CMake or C compiler on `PATH`.
+- Debug and Release builds pass with CMake/Ninja/Clang on Windows.
+- CTest passes for Debug, Release, ASan/UBSan runtime, and the non-instrumented TSan-profile fallback.
+- Fuzz harness smoke commands pass for decoder, chunk-boundary, and demux-remux entry points.
+- ThreadSanitizer instrumentation is not supported by the installed Windows Clang target.
 
 See `docs/IMPLEMENTATION_STATUS.md` and `docs/REQUIREMENTS_TRACEABILITY.md` for the precise status.

@@ -170,7 +170,9 @@ static tide_status tide_decode_record_prefix(const uint8_t *data,
                                              tide_record_frame *frame,
                                              tide_error *error) {
   tide_reader reader;
+  uint64_t record_payload_end_u64;
   uint64_t payload_end_u64;
+  uint64_t record_padded_end_u64;
   uint64_t padding_end_u64;
   uint64_t crc_end_u64;
   if (size - offset < 8u) {
@@ -194,8 +196,10 @@ static tide_status tide_decode_record_prefix(const uint8_t *data,
   }
   frame->offset = offset;
   frame->payload_offset = offset + frame->header_size;
-  if (!tide_checked_add_u64((uint64_t)frame->payload_offset, frame->payload_size, &payload_end_u64) ||
-      !tide_align_u64(payload_end_u64, 1ull << frame->alignment_log2, &padding_end_u64) ||
+  if (!tide_checked_add_u64((uint64_t)frame->header_size, frame->payload_size, &record_payload_end_u64) ||
+      !tide_checked_add_u64((uint64_t)frame->offset, record_payload_end_u64, &payload_end_u64) ||
+      !tide_align_u64(record_payload_end_u64, 1ull << frame->alignment_log2, &record_padded_end_u64) ||
+      !tide_checked_add_u64((uint64_t)frame->offset, record_padded_end_u64, &padding_end_u64) ||
       !tide_checked_add_u64(padding_end_u64, 4u, &crc_end_u64) ||
       payload_end_u64 > (uint64_t)SIZE_MAX ||
       padding_end_u64 > (uint64_t)SIZE_MAX ||
@@ -331,30 +335,251 @@ static tide_status tide_emit_simple_record(tide_decoder_impl *impl,
                                            tide_error *error) {
   tide_reader reader;
   uint64_t count;
-  (void)impl;
   tide_reader_init(&reader, payload, payload_size);
   switch (frame->type) {
-    case TIDE_RECORD_PACKET_TABLE:
-      if (!tide_reader_read_uleb128(&reader, &count) ||
-          count > impl->limits.max_packet_table_entries) {
+    case TIDE_RECORD_PACKET_TABLE: {
+      uint32_t track_id;
+      uint32_t generation;
+      uint64_t previous_end = 0u;
+      uint64_t previous_seq = 0u;
+      uint64_t i;
+      if (!tide_reader_read_u32(&reader, &track_id) ||
+          !tide_reader_read_u32(&reader, &generation) ||
+          !tide_reader_read_uleb128(&reader, &count) ||
+          count > impl->limits.max_packet_table_entries ||
+          tide_find_track(impl, track_id, generation) == NULL) {
         tide_set_parse_error(error, TIDE_STATUS_RESOURCE, (uint64_t)frame->payload_offset, frame->type, frame->depth, "packet table limit");
         return TIDE_STATUS_RESOURCE;
       }
+      for (i = 0u; i < count; ++i) {
+        uint64_t packet_seq;
+        int64_t dts;
+        int64_t pts;
+        int64_t duration;
+        uint32_t flags;
+        uint64_t range_offset;
+        uint64_t range_size;
+        uint64_t range_end;
+        (void)dts;
+        (void)pts;
+        (void)flags;
+        if (!tide_reader_read_u64(&reader, &packet_seq) ||
+            !tide_reader_read_i64(&reader, &dts) ||
+            !tide_reader_read_i64(&reader, &pts) ||
+            !tide_reader_read_i64(&reader, &duration) ||
+            !tide_reader_read_u32(&reader, &flags) ||
+            !tide_reader_read_u64(&reader, &range_offset) ||
+            !tide_reader_read_u64(&reader, &range_size) ||
+            duration < 0 ||
+            !tide_checked_add_u64(range_offset, range_size, &range_end) ||
+            (i != 0u && packet_seq <= previous_seq) ||
+            range_offset < previous_end) {
+          tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad packet table entry");
+          return TIDE_STATUS_FORMAT;
+        }
+        previous_seq = packet_seq;
+        previous_end = range_end;
+      }
+      if (reader.offset != payload_size) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "packet table trailing bytes");
+        return TIDE_STATUS_FORMAT;
+      }
       return TIDE_STATUS_OK;
-    case TIDE_RECORD_EDIT_LIST:
-      if (!tide_reader_skip(&reader, 8u) ||
+    }
+    case TIDE_RECORD_EDIT_LIST: {
+      uint32_t track_id;
+      uint32_t generation;
+      int64_t previous_end = INT64_MIN;
+      uint64_t i;
+      if (!tide_reader_read_u32(&reader, &track_id) ||
+          !tide_reader_read_u32(&reader, &generation) ||
           !tide_reader_read_uleb128(&reader, &count) ||
-          count > impl->limits.max_edit_entries) {
+          count > impl->limits.max_edit_entries ||
+          tide_find_track(impl, track_id, generation) == NULL) {
         tide_set_parse_error(error, TIDE_STATUS_TIMELINE, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad edit list");
         return TIDE_STATUS_TIMELINE;
       }
+      for (i = 0u; i < count; ++i) {
+        int64_t output_start;
+        int64_t output_duration;
+        int64_t source_start;
+        tide_rational rate;
+        int64_t output_end;
+        if (!tide_reader_read_i64(&reader, &output_start) ||
+            !tide_reader_read_i64(&reader, &output_duration) ||
+            !tide_reader_read_i64(&reader, &source_start) ||
+            !tide_reader_read_u32(&reader, &rate.numerator) ||
+            !tide_reader_read_u32(&reader, &rate.denominator) ||
+            output_duration < 0 ||
+            output_start > INT64_MAX - output_duration ||
+            !tide_rational_is_valid(rate)) {
+          tide_set_parse_error(error, TIDE_STATUS_TIMELINE, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad edit entry");
+          return TIDE_STATUS_TIMELINE;
+        }
+        output_end = output_start + output_duration;
+        if (i != 0u && output_start < previous_end) {
+          tide_set_parse_error(error, TIDE_STATUS_TIMELINE, (uint64_t)frame->payload_offset, frame->type, frame->depth, "overlapping edit entries");
+          return TIDE_STATUS_TIMELINE;
+        }
+        (void)source_start;
+        previous_end = output_end;
+      }
+      if (reader.offset != payload_size) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "edit list trailing bytes");
+        return TIDE_STATUS_FORMAT;
+      }
       return TIDE_STATUS_OK;
-    case TIDE_RECORD_DISCONTINUITY:
-    case TIDE_RECORD_SEEK_INDEX:
-    case TIDE_RECORD_CHECKPOINT:
-    case TIDE_RECORD_INDEX_DIRECTORY:
-    case TIDE_RECORD_FOOTER:
+    }
+    case TIDE_RECORD_DISCONTINUITY: {
+      uint32_t track_id;
+      uint32_t generation;
+      uint64_t epoch;
+      uint32_t reason;
+      if (!tide_reader_read_u32(&reader, &track_id) ||
+          !tide_reader_read_u32(&reader, &generation) ||
+          !tide_reader_read_u64(&reader, &epoch) ||
+          !tide_reader_read_u32(&reader, &reason) ||
+          epoch == 0u ||
+          reader.offset != payload_size ||
+          (track_id != 0u && tide_find_track(impl, track_id, generation) == NULL)) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad discontinuity");
+        return TIDE_STATUS_FORMAT;
+      }
+      (void)reason;
       return TIDE_STATUS_OK;
+    }
+    case TIDE_RECORD_SEEK_INDEX: {
+      uint64_t index_generation;
+      uint64_t previous_sort_key = 0u;
+      uint64_t i;
+      if (!tide_reader_read_u64(&reader, &index_generation) ||
+          !tide_reader_read_uleb128(&reader, &count)) {
+        tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad seek index header");
+        return TIDE_STATUS_INDEX;
+      }
+      (void)index_generation;
+      for (i = 0u; i < count; ++i) {
+        uint32_t track_id;
+        uint32_t generation;
+        uint64_t packet_seq;
+        int64_t pts;
+        uint64_t group_offset;
+        uint64_t record_offset;
+        uint64_t sort_key;
+        if (!tide_reader_read_u32(&reader, &track_id) ||
+            !tide_reader_read_u32(&reader, &generation) ||
+            !tide_reader_read_u64(&reader, &packet_seq) ||
+            !tide_reader_read_i64(&reader, &pts) ||
+            !tide_reader_read_u64(&reader, &group_offset) ||
+            !tide_reader_read_u64(&reader, &record_offset) ||
+            tide_find_track(impl, track_id, generation) == NULL ||
+            group_offset < TIDE_HEADER_SIZE ||
+            record_offset < group_offset ||
+            record_offset >= (uint64_t)frame->offset) {
+          tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad seek index entry");
+          return TIDE_STATUS_INDEX;
+        }
+        sort_key = ((uint64_t)track_id << 32u) ^ (uint64_t)(pts < 0 ? 0 : pts);
+        if (i != 0u && sort_key < previous_sort_key) {
+          tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "unsorted seek index");
+          return TIDE_STATUS_INDEX;
+        }
+        previous_sort_key = sort_key;
+        (void)packet_seq;
+      }
+      if (reader.offset != payload_size) {
+        tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "seek index trailing bytes");
+        return TIDE_STATUS_INDEX;
+      }
+      return TIDE_STATUS_OK;
+    }
+    case TIDE_RECORD_CHECKPOINT: {
+      uint64_t group_sequence;
+      uint64_t prefix_offset;
+      const uint8_t *digest;
+      uint64_t i;
+      if (!tide_reader_read_u64(&reader, &group_sequence) ||
+          !tide_reader_read_u64(&reader, &prefix_offset) ||
+          !tide_reader_read_bytes(&reader, &digest, TIDE_DIGEST_SIZE) ||
+          !tide_reader_read_uleb128(&reader, &count) ||
+          prefix_offset > (uint64_t)frame->offset ||
+          count > impl->limits.max_tracks) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad checkpoint");
+        return TIDE_STATUS_FORMAT;
+      }
+      for (i = 0u; i < count; ++i) {
+        uint32_t track_id;
+        uint32_t generation;
+        if (!tide_reader_read_u32(&reader, &track_id) ||
+            !tide_reader_read_u32(&reader, &generation) ||
+            tide_find_track(impl, track_id, generation) == NULL) {
+          tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad checkpoint descriptor");
+          return TIDE_STATUS_FORMAT;
+        }
+      }
+      if (reader.offset != payload_size) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "checkpoint trailing bytes");
+        return TIDE_STATUS_FORMAT;
+      }
+      (void)group_sequence;
+      (void)digest;
+      return TIDE_STATUS_OK;
+    }
+    case TIDE_RECORD_INDEX_DIRECTORY: {
+      uint64_t previous_end = 0u;
+      uint64_t previous_generation = 0u;
+      uint64_t i;
+      if (!tide_reader_read_uleb128(&reader, &count)) {
+        tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad index directory");
+        return TIDE_STATUS_INDEX;
+      }
+      for (i = 0u; i < count; ++i) {
+        uint64_t generation;
+        int64_t start_time;
+        int64_t end_time;
+        uint64_t offset;
+        if (!tide_reader_read_u64(&reader, &generation) ||
+            !tide_reader_read_i64(&reader, &start_time) ||
+            !tide_reader_read_i64(&reader, &end_time) ||
+            !tide_reader_read_u64(&reader, &offset) ||
+            start_time < 0 ||
+            end_time < start_time ||
+            offset < TIDE_HEADER_SIZE ||
+            offset >= (uint64_t)frame->offset ||
+            (i != 0u && generation <= previous_generation) ||
+            (i != 0u && (uint64_t)start_time < previous_end)) {
+          tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad index directory entry");
+          return TIDE_STATUS_INDEX;
+        }
+        previous_generation = generation;
+        previous_end = (uint64_t)end_time;
+      }
+      if (reader.offset != payload_size) {
+        tide_set_parse_error(error, TIDE_STATUS_INDEX, (uint64_t)frame->payload_offset, frame->type, frame->depth, "index directory trailing bytes");
+        return TIDE_STATUS_INDEX;
+      }
+      return TIDE_STATUS_OK;
+    }
+    case TIDE_RECORD_FOOTER: {
+      uint64_t file_length;
+      uint64_t index_directory_offset;
+      uint64_t last_checkpoint_sequence;
+      const uint8_t *digest;
+      if (!tide_reader_read_u64(&reader, &file_length) ||
+          !tide_reader_read_u64(&reader, &index_directory_offset) ||
+          !tide_reader_read_uleb128(&reader, &last_checkpoint_sequence) ||
+          !tide_reader_read_bytes(&reader, &digest, TIDE_DIGEST_SIZE) ||
+          reader.offset != payload_size ||
+          file_length != (uint64_t)frame->crc_end ||
+          (index_directory_offset != 0u &&
+           (index_directory_offset < TIDE_HEADER_SIZE || index_directory_offset >= (uint64_t)frame->offset))) {
+        tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad footer");
+        return TIDE_STATUS_FORMAT;
+      }
+      (void)last_checkpoint_sequence;
+      (void)digest;
+      return TIDE_STATUS_OK;
+    }
     default:
       return TIDE_STATUS_OK;
   }

@@ -22,6 +22,7 @@ int main(void) {
   int i;
   memset(tests, 0, sizeof(tests));
   count = append_tests(tests, count, 128, tide_reader_tests);
+  count = append_tests(tests, count, 128, tide_record_semantics_tests);
   count = append_tests(tests, count, 128, tide_time_tests);
   count = append_tests(tests, count, 128, tide_edit_tests);
   count = append_tests(tests, count, 128, tide_reorder_tests);

@@ -29,4 +29,13 @@ When libFuzzer is enabled, run:
 ./build/fuzz/fuzz_demux_remux -runs=1000 corpus/roundtrip
 ```
 
+Standalone smoke commands used on Windows:
+
+```powershell
+.\example_write_capture.exe
+.\fuzz_decoder.exe example.tide
+.\fuzz_chunk_boundaries.exe
+.\fuzz_demux_remux.exe
+```
+
 Failures should be minimized, added as normal regression tests, and recorded in the traceability matrix. Fuzz inputs are untrusted data and must never be executed as commands.

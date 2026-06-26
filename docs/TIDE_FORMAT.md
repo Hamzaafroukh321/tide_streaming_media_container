@@ -44,7 +44,13 @@ Known implemented records:
 - `STREAM_DESC` (`0x0010`): track, generation, media kind, codec tag, time base, and config bytes.
 - `PACKET` (`0x0020`): track, generation, sequence, DTS, PTS, duration, flags, and opaque payload bytes.
 - `GROUP` (`0x0001`): group metadata followed by exact child record bytes.
-- `PACKET_TABLE`, `EDIT_LIST`, `DISCONTINUITY`, `SEEK_INDEX`, `CHECKPOINT`, `INDEX_DIRECTORY`, and `FOOTER`: framed and bounded; detailed payload semantics are still growing.
+- `PACKET_TABLE` (`0x0021`): `track_id:u32`, `generation:u32`, `count:ULEB128`, then entries of `packet_seq:u64`, `dts:i64`, `pts:i64`, `duration:i64`, `flags:u32`, `range_offset:u64`, `range_size:u64`. Entries must have increasing packet sequence, nonnegative duration, checked range end, and nonoverlapping ascending ranges.
+- `EDIT_LIST` (`0x0030`): `track_id:u32`, `generation:u32`, `count:ULEB128`, then entries of `output_start:i64`, `output_duration:i64`, `source_start:i64`, `rate_num:u32`, `rate_den:u32`. The track must exist, rates must be reduced positive rationals, durations must be nonnegative, and output intervals must not overlap.
+- `DISCONTINUITY` (`0x0031`): `track_id:u32`, `generation:u32`, `epoch:u64`, `reason:u32`. Epoch must be nonzero; nonzero track IDs must reference an existing descriptor generation.
+- `SEEK_INDEX` (`0x0040`): `index_generation:u64`, `count:ULEB128`, then entries of track/generation, packet sequence, PTS, group offset, and record offset. Offsets must point before the index record and at or after the header.
+- `CHECKPOINT` (`0x0050`): group sequence, complete-prefix offset, 32-byte digest adapter field, and descriptor summary pairs. Prefix offsets cannot point beyond the checkpoint record.
+- `INDEX_DIRECTORY` (`0x0060`): count and sorted generation/time/offset entries. Time ranges must be nonnegative and nonoverlapping.
+- `FOOTER` (`0x007F`): file length, index directory offset, last checkpoint sequence, and 32-byte digest adapter field. File length must equal the byte immediately after the framed footer.
 
 Unknown records with the high bit set are skippable. Unknown required records fail with `TIDE_STATUS_UNSUPPORTED`.
 

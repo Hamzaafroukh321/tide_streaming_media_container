@@ -2,14 +2,14 @@
 
 | ID | Specification section | Requirement | Implementation files | Test/fuzz evidence | Status | Commit |
 |---|---|---|---|---|---|---|
-| REQ-001 | 1, 17 | C17 CMake project with core, CLI, tests, tools, and fuzz targets. | `CMakeLists.txt`, `cmake/*`, `tools/*`, `examples/*` | `git diff --check`; configure/build blocked locally | Implemented | 044cfc6 |
+| REQ-001 | 1, 17 | C17 CMake project with core, CLI, tests, tools, and fuzz targets. | `CMakeLists.txt`, `cmake/*`, `tools/*`, `examples/*` | Debug, Release, ASan/UBSan, and TSan-profile compatibility builds pass locally | Verified | pending |
 | REQ-002 | 12 | Stable status/error categories with offset/path context. | `include/tide/error.h`, `src/common/error.c` | Source present; build blocked locally | Implemented | 044cfc6 |
 | REQ-003 | 12, 18 | Checked arithmetic and resource limits before allocation, slicing, and timestamp conversion. | `include/tide/limits.h`, `src/common/checked.c`, `src/common/limits.c` | Source present; build blocked locally | Implemented | 044cfc6 |
 | REQ-004 | 7 | TIDE-1 header validation including magic, version, feature bits, time base, UUID, and CRC. | `src/format/decoder.c`, `src/format/writer.c` | `HeaderCanonicalRoundTrip` source; build blocked locally | Implemented | 044cfc6 |
 | REQ-005 | 7, 8 | Incremental record decoder with bounded explicit group/frame stack and partial-tail status. | `include/tide/decoder.h`, `src/format/decoder.c` | `PartialTailStatus` source; true progressive callbacks unverified | In progress | 044cfc6 |
 | REQ-006 | 7 | ULEB128, little-endian primitive, padding, CRC, unknown-record policy, and canonical writer. | `src/format/reader.c`, `src/format/writer.c`, `src/format/crc32c.c` | Round-trip test source; build blocked locally | Implemented | 044cfc6 |
 | REQ-007 | 6, 9 | Zero-safe lifecycle, opaque handles, track generations, packet refs, and payload leases. | `include/tide/tide.h`, `src/model/*`, `src/source/*` | Reorder/ownership test source; build blocked locally | Implemented | 044cfc6 |
-| REQ-008 | 7 | STREAM_DESC, PACKET, PACKET_TABLE, EDIT_LIST, DISCONTINUITY, SEEK_INDEX, CHECKPOINT, INDEX_DIRECTORY, FOOTER records. | `src/format/decoder.c`, `src/format/writer.c`, `src/model/*` | Descriptor/packet/footer subset tests; richer records unverified | In progress | 044cfc6 |
+| REQ-008 | 7 | STREAM_DESC, PACKET, PACKET_TABLE, EDIT_LIST, DISCONTINUITY, SEEK_INDEX, CHECKPOINT, INDEX_DIRECTORY, FOOTER records. | `src/format/decoder.c`, `src/format/writer.c`, `src/model/*` | `EditListSemanticsAcceptOrderedEntries`, `EditListRejectsOverlap`, `PacketTableRejectsOverlappingRanges`, `FooterRejectsWrongFileLength`; CTest passed locally | In progress | pending |
 | REQ-009 | 10 | Rational timestamp conversion with floor, ceil, and nearest-even rounding without overflow. | `src/model/time.c` | `RationalExactConversion`, `NearestEvenTieCases`, `TimestampInvalidBaseRejected` source | Implemented | 044cfc6 |
 | REQ-010 | 10 | Canonical edit lists and packet interval projection. | `src/model/edit.c` | `EditClipProducesExpectedPieces`, `EditGapDropsPacket` source | In progress | 044cfc6 |
 | REQ-011 | 10, 13 | Bounded deterministic reorder queue, discontinuities, and explicit single-owner thread model. | `src/index/reorder.c` | `ReorderDepthRelease` source; discontinuity/full worker tests pending | In progress | 044cfc6 |
@@ -21,7 +21,7 @@
 | REQ-017 | 14, 15 | Decoder fuzz harness bounded and production-linked. | `fuzz/fuzz_decoder.c` | Fuzz smoke blocked locally | Implemented | 044cfc6 |
 | REQ-018 | 14, 15 | Chunk-boundary fuzz harness comparing split and contiguous decode. | `fuzz/fuzz_chunk_boundaries.c` | Fuzz smoke blocked locally; equivalence assertions need expansion | In progress | 044cfc6 |
 | REQ-019 | 14, 15 | Demux-remux fuzz harness using production demux/mux and model checks. | `fuzz/fuzz_demux_remux.c` | Fuzz smoke blocked locally; model checks need expansion | In progress | 044cfc6 |
-| REQ-020 | 16 | Unit, integration, malformed, truncation, cancellation, allocation-failure, and deterministic tests. | `tests/*` | Test source added; CTest blocked locally; more categories pending | In progress | 044cfc6 |
+| REQ-020 | 16 | Unit, integration, malformed, truncation, cancellation, allocation-failure, and deterministic tests. | `tests/*` | CTest passed locally for current unit/integration coverage; allocation-failure/cancellation/soak categories pending | In progress | pending |
 | REQ-021 | 18 | Performance budget commands and honest unverified/verified measurements. | `scripts/benchmark.sh`, `docs/PERFORMANCE.md` | Benchmarks blocked/unverified | In progress | 044cfc6 |
 | REQ-022 | 19, 24 | Required documentation deliverables match actual behavior. | `README.md`, `docs/*`, `FUZZING.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md` | Documentation source review; build examples blocked locally | In progress | 044cfc6 |
 | REQ-023 | 23 | Assisted development provenance is transparent. | `ASSISTED_DEVELOPMENT.md` | Document present | Implemented | 09328e2 |

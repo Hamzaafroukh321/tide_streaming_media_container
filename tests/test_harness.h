@@ -29,6 +29,7 @@ typedef struct tide_test_case {
   } while (0)
 
 int tide_reader_tests(tide_test_case *out, int max);
+int tide_record_semantics_tests(tide_test_case *out, int max);
 int tide_time_tests(tide_test_case *out, int max);
 int tide_edit_tests(tide_test_case *out, int max);
 int tide_reorder_tests(tide_test_case *out, int max);

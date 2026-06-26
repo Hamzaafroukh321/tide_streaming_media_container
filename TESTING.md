@@ -22,3 +22,10 @@ Covered test names include:
 - `RepairDropsIncompleteGroup`
 
 Additional malformed, allocation-failure, cancellation, compatibility, and long soak tests remain required before full-version completion.
+
+On Windows ASan/UBSan runs need the LLVM sanitizer runtime on `PATH`:
+
+```powershell
+$env:PATH = 'C:\Program Files\LLVM\lib\clang\22\lib\windows;C:\Program Files\LLVM\bin;' + $env:PATH
+.\tide_tests.exe
+```
