@@ -73,7 +73,7 @@ No benchmarks run. Numeric budgets are unverified until a supported toolchain an
 
 ## Last Verified Commit
 
-09328e2
+044cfc6
 
 ## Last Updated
 
