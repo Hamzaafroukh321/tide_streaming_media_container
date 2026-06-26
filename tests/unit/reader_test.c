@@ -123,9 +123,22 @@ static int decoder_emits_complete_record_before_final_eof(void) {
   return 0;
 }
 
+static int cancel_before_feed_is_sticky(void) {
+  tide_decoder decoder;
+  size_t consumed = 0;
+  uint8_t byte = 0u;
+  TIDE_EXPECT_STATUS(tide_decoder_init(&decoder, NULL, NULL, NULL), TIDE_STATUS_OK);
+  tide_decoder_cancel(&decoder);
+  TIDE_EXPECT_STATUS(tide_decoder_feed(&decoder, &byte, sizeof(byte), 0, &consumed), TIDE_STATUS_CANCELLED);
+  TIDE_EXPECT(consumed == 0u);
+  tide_decoder_destroy(&decoder);
+  return 0;
+}
+
 int tide_reader_tests(tide_test_case *out, int max) {
   int n = 0;
   if (max > n) out[n++] = (tide_test_case){"HeaderCanonicalRoundTrip", header_canonical_round_trip};
   if (max > n) out[n++] = (tide_test_case){"DecoderEmitsCompleteRecordBeforeFinalEof", decoder_emits_complete_record_before_final_eof};
+  if (max > n) out[n++] = (tide_test_case){"CancelBeforeFeedIsSticky", cancel_before_feed_is_sticky};
   return n;
 }

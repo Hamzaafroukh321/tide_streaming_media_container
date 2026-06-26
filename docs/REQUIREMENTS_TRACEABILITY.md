@@ -21,7 +21,7 @@
 | REQ-017 | 14, 15 | Decoder fuzz harness bounded and production-linked. | `fuzz/fuzz_decoder.c` | Fuzz smoke blocked locally | Implemented | 044cfc6 |
 | REQ-018 | 14, 15 | Chunk-boundary fuzz harness comparing split and contiguous decode. | `fuzz/fuzz_chunk_boundaries.c` | Standalone smoke passed; harness asserts status/event equivalence for contiguous vs split decode | Implemented | pending |
 | REQ-019 | 14, 15 | Demux-remux fuzz harness using production demux/mux and model checks. | `fuzz/fuzz_demux_remux.c` | Fuzz smoke blocked locally; model checks need expansion | In progress | 044cfc6 |
-| REQ-020 | 16 | Unit, integration, malformed, truncation, cancellation, allocation-failure, and deterministic tests. | `tests/*` | CTest passed locally for current unit/integration coverage; allocation-failure/cancellation/soak categories pending | In progress | pending |
+| REQ-020 | 16 | Unit, integration, malformed, truncation, cancellation, allocation-failure, and deterministic tests. | `tests/*` | CTest passed locally for current unit/integration coverage including decoder cancellation; allocation-failure and soak categories pending | In progress | pending |
 | REQ-021 | 18 | Performance budget commands and honest unverified/verified measurements. | `scripts/benchmark.sh`, `docs/PERFORMANCE.md` | Benchmarks blocked/unverified | In progress | 044cfc6 |
 | REQ-022 | 19, 24 | Required documentation deliverables match actual behavior. | `README.md`, `docs/*`, `FUZZING.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md` | Documentation source review; build examples blocked locally | In progress | 044cfc6 |
 | REQ-023 | 23 | Assisted development provenance is transparent. | `ASSISTED_DEVELOPMENT.md` | Document present | Implemented | 09328e2 |
