@@ -4,7 +4,7 @@ The repository defines three harnesses:
 
 - `fuzz_decoder`: feeds bytes to `tide_decoder_feed`.
 - `fuzz_chunk_boundaries`: compares production decoder status and event counts for contiguous input versus a split input plan.
-- `fuzz_demux_remux`: opens accepted data with production demux and rewrites it with production mux.
+- `fuzz_demux_remux`: opens accepted data with production demux, rewrites it with production mux, reopens the result, and checks stream/packet counts.
 
 Build:
 

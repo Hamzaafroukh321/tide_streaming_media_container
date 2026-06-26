@@ -8,9 +8,13 @@
 
 static int run_one(const uint8_t *data, size_t size) {
   tide_source *source = NULL;
+  tide_source *roundtrip_source = NULL;
   tide_demux *demux = NULL;
+  tide_demux *roundtrip_demux = NULL;
   tide_mux *mux = NULL;
   tide_status status;
+  size_t input_packets = 0u;
+  size_t output_packets = 0u;
   size_t i;
   if (tide_source_from_memory(&source, data, size) != TIDE_STATUS_OK) {
     return 0;
@@ -43,12 +47,42 @@ static int run_one(const uint8_t *data, size_t size) {
     }
     if (status == TIDE_STATUS_OK) {
       status = tide_mux_write_packet(mux, &packet);
+      input_packets += 1u;
     }
     tide_packet_ref_reset(&packet);
   }
   if (mux != NULL) {
-    (void)tide_mux_close(mux);
+    tide_status close_status = tide_mux_close(mux);
+    if (status == TIDE_STATUS_OK) {
+      status = close_status;
+    }
   }
+  if (status == TIDE_STATUS_OK &&
+      tide_source_from_file(&roundtrip_source, "fuzz_roundtrip.tide") == TIDE_STATUS_OK &&
+      tide_demux_open(&roundtrip_demux, roundtrip_source, NULL) == TIDE_STATUS_OK) {
+    if (tide_demux_stream_count(roundtrip_demux) != tide_demux_stream_count(demux)) {
+      abort();
+    }
+    for (;;) {
+      tide_packet_ref packet;
+      tide_packet_ref_init(&packet);
+      status = tide_demux_next(roundtrip_demux, &packet);
+      if (status == TIDE_STATUS_WOULD_BLOCK) {
+        status = TIDE_STATUS_OK;
+        break;
+      }
+      if (status != TIDE_STATUS_OK) {
+        break;
+      }
+      output_packets += 1u;
+      tide_packet_ref_reset(&packet);
+    }
+    if (status == TIDE_STATUS_OK && output_packets != input_packets) {
+      abort();
+    }
+  }
+  tide_demux_close(roundtrip_demux);
+  tide_source_destroy(roundtrip_source);
   tide_demux_close(demux);
   tide_source_destroy(source);
   remove("fuzz_roundtrip.tide");
