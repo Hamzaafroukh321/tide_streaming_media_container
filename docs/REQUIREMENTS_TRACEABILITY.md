@@ -17,7 +17,7 @@
 | REQ-013 | 11 | Public API for decoder, demux, mux, repair, and packet ownership. | `include/tide/*.h`, `src/demux/*`, `src/mux/*`, `src/repair/*` | Integration test sources; build blocked locally | Implemented | 044cfc6 |
 | REQ-014 | 11 | CLI commands `inspect`, `demux`, `remux`, `index`, and `repair` with documented exit codes. | `src/cli/*` | CLI build/run blocked locally | Implemented | 044cfc6 |
 | REQ-015 | 10, 21 | Canonical remux preserving selected payload bytes/timestamps and reopening successfully. | `src/mux/*`, `src/demux/*` | `DemuxRemuxPayloadIdentity` source; build blocked locally | In progress | 044cfc6 |
-| REQ-016 | 10, 21 | Checkpoint-led strict repair scanner and fresh repaired output. | `src/repair/*` | `RepairDropsIncompleteGroup` source; checkpoint/authenticated repair pending | In progress | 044cfc6 |
+| REQ-016 | 10, 21 | Checkpoint-led strict repair scanner and fresh repaired output. | `src/repair/*` | `RepairDropsIncompleteGroup` validates fresh demux/mux repaired output; authenticated checkpoint fallback pending | In progress | pending |
 | REQ-017 | 14, 15 | Decoder fuzz harness bounded and production-linked. | `fuzz/fuzz_decoder.c` | Fuzz smoke blocked locally | Implemented | 044cfc6 |
 | REQ-018 | 14, 15 | Chunk-boundary fuzz harness comparing split and contiguous decode. | `fuzz/fuzz_chunk_boundaries.c` | Fuzz smoke blocked locally; equivalence assertions need expansion | In progress | 044cfc6 |
 | REQ-019 | 14, 15 | Demux-remux fuzz harness using production demux/mux and model checks. | `fuzz/fuzz_demux_remux.c` | Fuzz smoke blocked locally; model checks need expansion | In progress | 044cfc6 |

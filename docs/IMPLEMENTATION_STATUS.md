@@ -30,14 +30,14 @@ Continue TIDE-014 through TIDE-030: canonical writer vectors, richer demux/mux/i
 - Rational timestamp conversion and edit clipping.
 - Deterministic reorder queue.
 - Sequential demux/remux.
-- Prefix repair scan/write.
+- Prefix repair scan and fresh demux/mux repair output.
 - CLI commands.
 - Unit/integration test sources.
 - Fuzz harness sources.
 
 ## In-Progress Modules
 
-- Footer/checkpoint digest validation beyond bounded adapter fields.
+- Authenticated checkpoint-led fallback, omission reporting, and digest validation beyond bounded adapter fields.
 - Full checkpoint-led repair and fresh index/footer reconstruction.
 - Worker handoff, cancellation stress, and TSan verification.
 - Performance benchmark corpus and numeric budget validation.

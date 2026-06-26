@@ -1,11 +1,13 @@
 #include "test_fixture.h"
 
+#include "tide/demux.h"
 #include "tide/repair.h"
 
 static int repair_drops_incomplete_group(void) {
   tide_source *source = NULL;
   tide_repair_plan *plan = NULL;
   tide_source *repaired = NULL;
+  tide_demux *demux = NULL;
   size_t truncated_size;
   TIDE_EXPECT(tide_write_integration_sample("repair_in.tide") == 0);
   TIDE_EXPECT_STATUS(tide_source_from_file(&source, "repair_in.tide"), TIDE_STATUS_OK);
@@ -31,7 +33,9 @@ static int repair_drops_incomplete_group(void) {
   TIDE_EXPECT(tide_repair_plan_valid_prefix(plan) > TIDE_HEADER_SIZE);
   TIDE_EXPECT_STATUS(tide_repair_write(plan, "repair_out.tide"), TIDE_STATUS_OK);
   TIDE_EXPECT_STATUS(tide_source_from_file(&repaired, "repair_out.tide"), TIDE_STATUS_OK);
-  TIDE_EXPECT(tide_source_size(repaired) == (size_t)tide_repair_plan_valid_prefix(plan));
+  TIDE_EXPECT_STATUS(tide_demux_open(&demux, repaired, NULL), TIDE_STATUS_OK);
+  TIDE_EXPECT(tide_demux_stream_count(demux) == 1u);
+  tide_demux_close(demux);
   tide_source_destroy(repaired);
   tide_repair_plan_destroy(plan);
   tide_source_destroy(source);

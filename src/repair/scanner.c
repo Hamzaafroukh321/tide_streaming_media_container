@@ -1,6 +1,7 @@
 #include "tide_internal.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 struct tide_repair_plan {
   tide_source *source;
@@ -42,22 +43,75 @@ tide_status tide_repair_scan(tide_source *source,
 
 tide_status tide_repair_write(tide_repair_plan *opaque, const char *path) {
   struct tide_repair_plan *plan = (struct tide_repair_plan *)opaque;
-  FILE *file;
+  tide_source *prefix_source = NULL;
+  tide_demux *demux = NULL;
+  tide_mux *mux = NULL;
+  tide_demux_options demux_options;
+  tide_status status;
+  size_t i;
   if (plan == NULL || path == NULL || plan->valid_prefix == 0u) {
     return TIDE_STATUS_INVALID_ARGUMENT;
   }
-  file = fopen(path, "wb");
-  if (file == NULL) {
-    return TIDE_STATUS_IO;
+  status = tide_source_from_memory(&prefix_source,
+                                   tide_source_data(plan->source),
+                                   (size_t)plan->valid_prefix);
+  if (status != TIDE_STATUS_OK) {
+    goto cleanup;
   }
-  if (fwrite(tide_source_data(plan->source), 1u, (size_t)plan->valid_prefix, file) != (size_t)plan->valid_prefix) {
-    fclose(file);
-    return TIDE_STATUS_IO;
+  memset(&demux_options, 0, sizeof(demux_options));
+  demux_options.size = sizeof(demux_options);
+  demux_options.limits = tide_limits_default();
+  demux_options.strict = 0;
+  status = tide_demux_open(&demux, prefix_source, &demux_options);
+  if (status == TIDE_STATUS_PARTIAL) {
+    status = TIDE_STATUS_OK;
   }
-  if (fclose(file) != 0) {
-    return TIDE_STATUS_IO;
+  if (status != TIDE_STATUS_OK) {
+    goto cleanup;
   }
-  return TIDE_STATUS_OK;
+  status = tide_mux_create(&mux, path, NULL);
+  if (status != TIDE_STATUS_OK) {
+    goto cleanup;
+  }
+  for (i = 0u; i < tide_demux_stream_count(demux); ++i) {
+    tide_stream_info stream;
+    status = tide_demux_stream_info(demux, i, &stream);
+    if (status == TIDE_STATUS_OK) {
+      status = tide_mux_add_stream(mux, &stream);
+    }
+    if (status != TIDE_STATUS_OK) {
+      goto cleanup;
+    }
+  }
+  for (;;) {
+    tide_packet_ref packet;
+    tide_packet_ref_init(&packet);
+    status = tide_demux_next(demux, &packet);
+    if (status == TIDE_STATUS_WOULD_BLOCK) {
+      status = TIDE_STATUS_OK;
+      break;
+    }
+    if (status == TIDE_STATUS_OK) {
+      status = tide_mux_write_packet(mux, &packet);
+    }
+    tide_packet_ref_reset(&packet);
+    if (status != TIDE_STATUS_OK) {
+      goto cleanup;
+    }
+  }
+
+cleanup:
+  if (mux != NULL) {
+    if (status == TIDE_STATUS_OK) {
+      tide_status close_status = tide_mux_close(mux);
+      status = close_status;
+    } else {
+      tide_mux_abort(mux);
+    }
+  }
+  tide_demux_close(demux);
+  tide_source_destroy(prefix_source);
+  return status;
 }
 
 uint64_t tide_repair_plan_valid_prefix(const tide_repair_plan *opaque) {
