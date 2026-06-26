@@ -35,3 +35,15 @@ Alternatives considered: rewriting the project in a locally available language o
 Consequences: Source, tests, and docs can be prepared, but build/sanitizer/fuzz verification must be run later on a proper toolchain.
 
 Validation: `docs/IMPLEMENTATION_STATUS.md` lists exact commands and blocker details.
+
+## ADR-004: Start With A Bounded Accumulating Decoder Before Progressive Callback Emission
+
+Context: The full specification requires arbitrary chunking and partial-file behavior. The first implementation slice needs one production parser path that validates records, CRCs, and partial tails without duplicating parser logic in tests or fuzzers.
+
+Decision: The current `tide_decoder_feed` accumulates bounded input and emits callbacks when the caller marks EOF/final input. The shared parser still records complete-prefix state and distinguishes partial EOF from invalid structure.
+
+Alternatives considered: fully progressive callback emission during each feed. That is the final direction, but it requires a larger persistent frame/payload state machine.
+
+Consequences: Split plans can be fuzzed for final-feed determinism, but growing-file callbacks before final EOF remain unverified and tracked as in-progress requirements.
+
+Validation: `PartialTailStatus` and decoder fuzz harness source cover the current behavior; full progressive split matrix remains required.
