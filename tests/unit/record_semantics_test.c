@@ -136,11 +136,30 @@ static int footer_rejects_wrong_file_length(void) {
   return 0;
 }
 
+static int footer_rejects_digest_mismatch(void) {
+  tide_buffer file = {0};
+  tide_buffer temp = {0};
+  uint8_t payload[49];
+  uint64_t final_length;
+  TIDE_EXPECT_STATUS(append_test_header_and_stream(&file), TIDE_STATUS_OK);
+  memset(payload, 0, sizeof(payload));
+  temp.aggregate_limit = 1024u;
+  TIDE_EXPECT_STATUS(tide_write_record(&temp, TIDE_RECORD_FOOTER, 0u, 3u, 1u, payload, sizeof(payload)), TIDE_STATUS_OK);
+  final_length = (uint64_t)file.size + (uint64_t)temp.size;
+  tide_buffer_destroy(&temp);
+  tide_write_u64(payload, final_length);
+  TIDE_EXPECT_STATUS(tide_write_record(&file, TIDE_RECORD_FOOTER, 0u, 3u, 1u, payload, sizeof(payload)), TIDE_STATUS_OK);
+  TIDE_EXPECT_STATUS(decode_buffer(&file), TIDE_STATUS_INTEGRITY);
+  tide_buffer_destroy(&file);
+  return 0;
+}
+
 int tide_record_semantics_tests(tide_test_case *out, int max) {
   int n = 0;
   if (max > n) out[n++] = (tide_test_case){"EditListSemanticsAcceptOrderedEntries", edit_list_semantics_accept_ordered_entries};
   if (max > n) out[n++] = (tide_test_case){"EditListRejectsOverlap", edit_list_rejects_overlap};
   if (max > n) out[n++] = (tide_test_case){"PacketTableRejectsOverlappingRanges", packet_table_rejects_overlapping_ranges};
   if (max > n) out[n++] = (tide_test_case){"FooterRejectsWrongFileLength", footer_rejects_wrong_file_length};
+  if (max > n) out[n++] = (tide_test_case){"FooterRejectsDigestMismatch", footer_rejects_digest_mismatch};
   return n;
 }

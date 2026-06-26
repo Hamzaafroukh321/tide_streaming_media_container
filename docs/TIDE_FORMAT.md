@@ -50,7 +50,7 @@ Known implemented records:
 - `SEEK_INDEX` (`0x0040`): `index_generation:u64`, `count:ULEB128`, then entries of track/generation, packet sequence, PTS, group offset, and record offset. Offsets must point before the index record and at or after the header.
 - `CHECKPOINT` (`0x0050`): group sequence, complete-prefix offset, 32-byte digest adapter field, and descriptor summary pairs. Prefix offsets cannot point beyond the checkpoint record.
 - `INDEX_DIRECTORY` (`0x0060`): count and sorted generation/time/offset entries. Time ranges must be nonnegative and nonoverlapping.
-- `FOOTER` (`0x007F`): file length, index directory offset, last checkpoint sequence, and 32-byte digest adapter field. File length must equal the byte immediately after the framed footer.
+- `FOOTER` (`0x007F`): file length, index directory offset, last checkpoint sequence, and 32-byte digest adapter field. File length must equal the byte immediately after the framed footer. The current digest adapter binds bytes before the footer with a deterministic CRC32C-derived 32-byte value; this is not a cryptographic BLAKE3 implementation.
 
 Unknown records with the high bit set are skippable. Unknown required records fail with `TIDE_STATUS_UNSUPPORTED`.
 

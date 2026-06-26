@@ -6,7 +6,7 @@ Phase 3: first useful path, with local Windows verification active.
 
 ## Last Completed Ticket
 
-TIDE-010/TIDE-013 partial and TIDE-019 partial: the decoder now emits complete top-level records before final EOF, rich record validation was added for packet tables, edit lists, discontinuities, seek indexes, checkpoints, index directories, and footer length, and the sequential demux/remux CLI path is verified. Debug, Release, tests, ASan/UBSan executable test run, fuzz smoke, and CLI smoke pass on the local Windows Clang/Ninja toolchain.
+TIDE-010/TIDE-013 partial and TIDE-019 partial: the decoder now emits complete top-level records before final EOF, rich record validation was added for packet tables, edit lists, discontinuities, seek indexes, checkpoints, footer length, and footer prefix digest binding, and the sequential demux/remux CLI path is verified. Debug, Release, tests, ASan/UBSan executable test run, fuzz smoke, and CLI smoke pass on the local Windows Clang/Ninja toolchain.
 
 ## Next Actionable Ticket
 
@@ -37,7 +37,7 @@ Continue TIDE-014 through TIDE-030: canonical writer vectors, richer demux/mux/i
 
 ## In-Progress Modules
 
-- Authenticated checkpoint-led fallback, omission reporting, and digest validation beyond bounded adapter fields.
+- Authenticated checkpoint-led fallback, omission reporting, and cryptographic digest validation beyond the current CRC32C-derived adapter.
 - Full checkpoint-led repair and fresh index/footer reconstruction.
 - Worker handoff, cancellation stress, and TSan verification.
 - Performance benchmark corpus and numeric budget validation.
@@ -70,7 +70,7 @@ No benchmarks run. Numeric budgets are unverified; `scripts/benchmark.sh` is sti
 
 ## Deviations
 
-- The digest adapter is implemented as CRC32C for records only; checkpoint/footer BLAKE3-like digest semantics are not complete. Tracked as unverified full-version work, not a spec-compatible final state.
+- The footer digest adapter is CRC32C-derived and checkpoint BLAKE3-like digest semantics are not complete. Tracked as unverified full-version work, not a spec-compatible final state.
 - Progressive callback emission is implemented for complete top-level records. Deep payload streaming and pre-complete GROUP child emission remain future work.
 
 ## Last Verified Commit

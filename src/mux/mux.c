@@ -115,6 +115,7 @@ static tide_status tide_mux_append_footer(struct tide_mux *mux) {
   tide_write_u64(payload, final_length);
   tide_write_u64(payload + 8u, 0u);
   payload[16] = 0u;
+  tide_digest_adapter32(mux->buffer.data, mux->buffer.size, payload + 17u);
   status = tide_write_record(&record, TIDE_RECORD_FOOTER, 0u, 3u, mux->sequence++, payload, sizeof(payload));
   if (status == TIDE_STATUS_OK) {
     status = tide_buffer_append(&mux->buffer, record.data, record.size);

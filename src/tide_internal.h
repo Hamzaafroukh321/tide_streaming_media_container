@@ -92,6 +92,7 @@ void tide_write_u64(uint8_t *dst, uint64_t value);
 void tide_write_i64(uint8_t *dst, int64_t value);
 size_t tide_write_uleb128(uint8_t *dst, uint64_t value);
 size_t tide_uleb128_size(uint64_t value);
+void tide_digest_adapter32(const uint8_t *data, size_t size, uint8_t out[TIDE_DIGEST_SIZE]);
 
 tide_status tide_buffer_reserve(tide_buffer *buffer, size_t additional);
 tide_status tide_buffer_append(tide_buffer *buffer, const void *data, size_t size);

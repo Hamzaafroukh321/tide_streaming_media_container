@@ -331,6 +331,7 @@ static tide_status tide_emit_packet(tide_decoder_impl *impl,
 }
 
 static tide_status tide_emit_simple_record(tide_decoder_impl *impl,
+                                           const uint8_t *file_data,
                                            const uint8_t *payload,
                                            size_t payload_size,
                                            const tide_record_frame *frame,
@@ -567,6 +568,7 @@ static tide_status tide_emit_simple_record(tide_decoder_impl *impl,
       uint64_t index_directory_offset;
       uint64_t last_checkpoint_sequence;
       const uint8_t *digest;
+      uint8_t expected_digest[TIDE_DIGEST_SIZE];
       if (!tide_reader_read_u64(&reader, &file_length) ||
           !tide_reader_read_u64(&reader, &index_directory_offset) ||
           !tide_reader_read_uleb128(&reader, &last_checkpoint_sequence) ||
@@ -577,6 +579,11 @@ static tide_status tide_emit_simple_record(tide_decoder_impl *impl,
            (index_directory_offset < TIDE_HEADER_SIZE || index_directory_offset >= (uint64_t)frame->offset))) {
         tide_set_parse_error(error, TIDE_STATUS_FORMAT, (uint64_t)frame->payload_offset, frame->type, frame->depth, "bad footer");
         return TIDE_STATUS_FORMAT;
+      }
+      tide_digest_adapter32(file_data, frame->offset, expected_digest);
+      if (memcmp(digest, expected_digest, TIDE_DIGEST_SIZE) != 0) {
+        tide_set_parse_error(error, TIDE_STATUS_INTEGRITY, (uint64_t)frame->payload_offset, frame->type, frame->depth, "footer digest mismatch");
+        return TIDE_STATUS_INTEGRITY;
       }
       (void)last_checkpoint_sequence;
       (void)digest;
@@ -667,7 +674,7 @@ static tide_status tide_process_record(tide_decoder_impl *impl,
     case TIDE_RECORD_CHECKPOINT:
     case TIDE_RECORD_INDEX_DIRECTORY:
     case TIDE_RECORD_FOOTER:
-      return tide_emit_simple_record(impl, payload, payload_size, frame, error);
+      return tide_emit_simple_record(impl, data, payload, payload_size, frame, error);
     default:
       tide_set_parse_error(error, TIDE_STATUS_UNSUPPORTED, (uint64_t)frame->offset, frame->type, frame->depth, "unknown required record");
       return TIDE_STATUS_UNSUPPORTED;
